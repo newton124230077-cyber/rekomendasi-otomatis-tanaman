@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const path = require("path");
 
 const app = express();
 
@@ -10,32 +11,22 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Untuk membaca file frontend seperti index.html, css, js, gambar
+app.use(express.static(__dirname));
+
 // ==================== DATABASE SIMULASI ====================
 // Catatan: ini masih database sementara.
-// Kalau server restart, data user dan history akan hilang.
+// Kalau server restart / redeploy, data user dan history akan hilang.
 const users = [];
 const analysisHistory = [];
 
 // Secret key JWT
-// Kalau nanti mau lebih aman, masukkan JWT_SECRET ke Railway Variables.
 const JWT_SECRET = process.env.JWT_SECRET || "login2026_secret_key_sistem_tanaman";
 
-// ==================== ROUTE UTAMA UNTUK CEK BACKEND ====================
+// ==================== ROUTE FRONTEND ====================
+// Kalau buka link utama Railway, yang tampil adalah index.html
 app.get("/", (req, res) => {
-    res.json({
-        success: true,
-        message: "Backend rekomendasi tanaman berhasil jalan",
-        status: "online",
-        endpoints: {
-            health: "/api/health",
-            crops: "/api/crops",
-            register: "/api/auth/register",
-            login: "/api/auth/login",
-            profile: "/api/auth/me",
-            analyze: "/api/analyze",
-            history: "/api/history"
-        }
-    });
+    res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // ==================== FUNGSI PEMBANTU ====================
@@ -198,6 +189,30 @@ app.get("/api/health", (req, res) => {
         status: "OK",
         message: "Sistem Cerdas Rekomendasi Tanaman Berbasis Informasi Geospasial",
         version: "1.0.0"
+    });
+});
+
+// GET ALL CROPS
+app.get("/api/crops", (req, res) => {
+    res.json({
+        success: true,
+        data: [
+            {
+                key: "padi",
+                name: "Padi Sawah",
+                scientificName: "Oryza sativa"
+            },
+            {
+                key: "jagung",
+                name: "Jagung",
+                scientificName: "Zea mays"
+            },
+            {
+                key: "kopi",
+                name: "Kopi Robusta",
+                scientificName: "Coffea canephora"
+            }
+        ]
     });
 });
 
@@ -462,38 +477,13 @@ app.get("/api/history", authenticateToken, (req, res) => {
     });
 });
 
-// GET ALL CROPS
-app.get("/api/crops", (req, res) => {
-    res.json({
-        success: true,
-        data: [
-            {
-                key: "padi",
-                name: "Padi Sawah",
-                scientificName: "Oryza sativa"
-            },
-            {
-                key: "jagung",
-                name: "Jagung",
-                scientificName: "Zea mays"
-            },
-            {
-                key: "kopi",
-                name: "Kopi Robusta",
-                scientificName: "Coffea canephora"
-            }
-        ]
-    });
-});
-
-// ==================== ROUTE TIDAK DITEMUKAN ====================
-app.use((req, res) => {
+// ==================== ROUTE API TIDAK DITEMUKAN ====================
+app.use("/api", (req, res) => {
     res.status(404).json({
         success: false,
-        message: "Endpoint tidak ditemukan",
+        message: "Endpoint API tidak ditemukan",
         path: req.originalUrl,
         availableEndpoints: {
-            root: "/",
             health: "/api/health",
             crops: "/api/crops",
             register: "/api/auth/register",
@@ -505,6 +495,12 @@ app.use((req, res) => {
     });
 });
 
+// ==================== FALLBACK FRONTEND ====================
+// Kalau user refresh halaman frontend, tetap diarahkan ke index.html
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "index.html"));
+});
+
 // ==================== START SERVER ====================
 const PORT = process.env.PORT || 5500;
 
@@ -513,7 +509,7 @@ app.listen(PORT, "0.0.0.0", () => {
     console.log("🚀 SERVER BERHASIL DIJALANKAN!");
     console.log("========================================");
     console.log(`📱 Backend berjalan di port: ${PORT}`);
-    console.log("🔗 Root Endpoint: /");
+    console.log("🌐 Frontend: /");
     console.log("💚 Health Check: /api/health");
     console.log("🔑 API Login: /api/auth/login");
     console.log("📝 API Register: /api/auth/register");
