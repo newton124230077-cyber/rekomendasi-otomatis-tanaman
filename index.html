@@ -41,7 +41,7 @@
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         button[type="submit"] { width: 100%; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 12px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; transition: transform 0.2s; }
         button[type="submit"]:hover { transform: translateY(-2px); }
-        
+
         /* Peta Lokasi */
         #map {
             width: 100%;
@@ -147,6 +147,7 @@
                                 <input type="number" id="slope" step="any" required placeholder="Contoh: 5">
                             </div>
                         </div>
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label>🌧️ Curah Hujan (mm/tahun)</label>
@@ -157,6 +158,7 @@
                                 <input type="number" id="temperature" step="any" required placeholder="Contoh: 26">
                             </div>
                         </div>
+
                         <div class="form-group">
                             <label>🪨 Jenis Tanah</label>
                             <select id="soilType" required>
@@ -171,6 +173,42 @@
                         </div>
 
                         <div class="form-group">
+                            <label>🔎 Cari Kecamatan di Lampung Selatan</label>
+                            <input 
+                                type="text" 
+                                id="kecamatanInput" 
+                                list="daftarKecamatan" 
+                                placeholder="Contoh: Kalianda, Natar, Jati Agung"
+                                onchange="pindahKeKecamatan()"
+                                onkeydown="if(event.key === 'Enter'){ event.preventDefault(); pindahKeKecamatan(); }"
+                            >
+
+                            <datalist id="daftarKecamatan">
+                                <option value="Bakauheni"></option>
+                                <option value="Candipuro"></option>
+                                <option value="Jati Agung"></option>
+                                <option value="Kalianda"></option>
+                                <option value="Katibung"></option>
+                                <option value="Ketapang"></option>
+                                <option value="Merbau Mataram"></option>
+                                <option value="Natar"></option>
+                                <option value="Palas"></option>
+                                <option value="Penengahan"></option>
+                                <option value="Rajabasa"></option>
+                                <option value="Sidomulyo"></option>
+                                <option value="Sragi"></option>
+                                <option value="Tanjung Bintang"></option>
+                                <option value="Tanjung Sari"></option>
+                                <option value="Way Panji"></option>
+                                <option value="Way Sulan"></option>
+                            </datalist>
+
+                            <button type="button" class="location-btn" onclick="pindahKeKecamatan()">
+                                🔍 Pindah ke Kecamatan
+                            </button>
+                        </div>
+
+                        <div class="form-group">
                             <label>🗺️ Pilih Lokasi pada Peta</label>
                             <div id="map"></div>
 
@@ -181,6 +219,7 @@
                             <div class="location-info">
                                 <p><strong>Latitude:</strong> <span id="latitudeText">Belum dipilih</span></p>
                                 <p><strong>Longitude:</strong> <span id="longitudeText">Belum dipilih</span></p>
+                                <p><strong>Area:</strong> <span id="areaText">Lampung Selatan</span></p>
                             </div>
 
                             <input type="hidden" id="latitude">
@@ -220,23 +259,145 @@
         let selectedLatitude = null;
         let selectedLongitude = null;
 
+        // Batas peta hanya sekitar wilayah Lampung Selatan
+        const lampungSelatanBounds = L.latLngBounds(
+            [-6.10, 104.85],
+            [-5.15, 105.95]
+        );
+
+        // Koordinat perkiraan pusat kecamatan di Lampung Selatan
+        const kecamatanLampungSelatan = {
+            "bakauheni": {
+                nama: "Bakauheni",
+                lat: -5.865000,
+                lng: 105.750000
+            },
+            "candipuro": {
+                nama: "Candipuro",
+                lat: -5.536900,
+                lng: 105.481400
+            },
+            "jati agung": {
+                nama: "Jati Agung",
+                lat: -5.308900,
+                lng: 105.319500
+            },
+            "kalianda": {
+                nama: "Kalianda",
+                lat: -5.738100,
+                lng: 105.590200
+            },
+            "katibung": {
+                nama: "Katibung",
+                lat: -5.566700,
+                lng: 105.383300
+            },
+            "ketapang": {
+                nama: "Ketapang",
+                lat: -5.780000,
+                lng: 105.800000
+            },
+            "merbau mataram": {
+                nama: "Merbau Mataram",
+                lat: -5.532000,
+                lng: 105.444000
+            },
+            "natar": {
+                nama: "Natar",
+                lat: -5.308000,
+                lng: 105.190000
+            },
+            "palas": {
+                nama: "Palas",
+                lat: -5.606000,
+                lng: 105.680000
+            },
+            "penengahan": {
+                nama: "Penengahan",
+                lat: -5.752000,
+                lng: 105.700000
+            },
+            "rajabasa": {
+                nama: "Rajabasa",
+                lat: -5.792000,
+                lng: 105.620000
+            },
+            "sidomulyo": {
+                nama: "Sidomulyo",
+                lat: -5.573000,
+                lng: 105.533000
+            },
+            "sragi": {
+                nama: "Sragi",
+                lat: -5.668000,
+                lng: 105.800000
+            },
+            "tanjung bintang": {
+                nama: "Tanjung Bintang",
+                lat: -5.408000,
+                lng: 105.363000
+            },
+            "tanjung sari": {
+                nama: "Tanjung Sari",
+                lat: -5.365000,
+                lng: 105.420000
+            },
+            "way panji": {
+                nama: "Way Panji",
+                lat: -5.618000,
+                lng: 105.557000
+            },
+            "way sulan": {
+                nama: "Way Sulan",
+                lat: -5.540000,
+                lng: 105.457000
+            }
+        };
+
+        function normalisasiTeks(teks) {
+            return teks.toLowerCase().trim().replace(/\s+/g, " ");
+        }
+
         function initMap() {
-            map = L.map('map').setView([-5.3600, 105.3100], 12);
+            const defaultLat = -5.5620;
+            const defaultLng = 105.5470;
+
+            map = L.map('map', {
+                maxBounds: lampungSelatanBounds,
+                maxBoundsViscosity: 1.0,
+                minZoom: 10,
+                maxZoom: 18,
+                worldCopyJump: false
+            }).setView([defaultLat, defaultLng], 10);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
+                maxZoom: 18,
+                noWrap: true,
                 attribution: '© OpenStreetMap'
             }).addTo(map);
 
-            marker = L.marker([-5.3600, 105.3100], {
+            marker = L.marker([defaultLat, defaultLng], {
                 draggable: true
             }).addTo(map);
 
-            setSelectedLocation(-5.3600, 105.3100);
+            setSelectedLocation(defaultLat, defaultLng);
+
+            map.setMaxBounds(lampungSelatanBounds);
+
+            map.on('drag', function () {
+                map.panInsideBounds(lampungSelatanBounds, {
+                    animate: false
+                });
+            });
 
             map.on('click', function(event) {
                 const lat = event.latlng.lat;
                 const lng = event.latlng.lng;
+
+                if (!lampungSelatanBounds.contains([lat, lng])) {
+                    showMessage('Lokasi harus berada di wilayah Lampung Selatan', 'error');
+                    return;
+                }
 
                 marker.setLatLng([lat, lng]);
                 setSelectedLocation(lat, lng);
@@ -244,11 +405,25 @@
 
             marker.on('dragend', function() {
                 const position = marker.getLatLng();
+
+                if (!lampungSelatanBounds.contains(position)) {
+                    showMessage('Marker tidak boleh keluar dari wilayah Lampung Selatan', 'error');
+
+                    marker.setLatLng([selectedLatitude, selectedLongitude]);
+                    map.setView([selectedLatitude, selectedLongitude], map.getZoom());
+                    return;
+                }
+
                 setSelectedLocation(position.lat, position.lng);
             });
         }
 
         function setSelectedLocation(lat, lng) {
+            if (!lampungSelatanBounds.contains([lat, lng])) {
+                showMessage('Lokasi harus berada di wilayah Lampung Selatan', 'error');
+                return;
+            }
+
             selectedLatitude = lat;
             selectedLongitude = lng;
 
@@ -257,6 +432,52 @@
 
             document.getElementById('latitudeText').textContent = lat.toFixed(6);
             document.getElementById('longitudeText').textContent = lng.toFixed(6);
+        }
+
+        function pindahKeKecamatan() {
+            const input = document.getElementById('kecamatanInput').value;
+            const key = normalisasiTeks(input);
+
+            if (!key) {
+                showMessage('Silakan isi nama kecamatan terlebih dahulu', 'error');
+                return;
+            }
+
+            let kecamatan = kecamatanLampungSelatan[key];
+
+            if (!kecamatan) {
+                const daftarKey = Object.keys(kecamatanLampungSelatan);
+                const keyDitemukan = daftarKey.find(namaKecamatan => {
+                    return namaKecamatan.includes(key) || key.includes(namaKecamatan);
+                });
+
+                if (keyDitemukan) {
+                    kecamatan = kecamatanLampungSelatan[keyDitemukan];
+                }
+            }
+
+            if (!kecamatan) {
+                showMessage('Kecamatan tidak ditemukan. Pastikan kecamatan berada di Lampung Selatan.', 'error');
+                return;
+            }
+
+            const lat = kecamatan.lat;
+            const lng = kecamatan.lng;
+
+            if (!lampungSelatanBounds.contains([lat, lng])) {
+                showMessage('Koordinat kecamatan berada di luar batas Lampung Selatan', 'error');
+                return;
+            }
+
+            map.setView([lat, lng], 14);
+            marker.setLatLng([lat, lng]);
+            setSelectedLocation(lat, lng);
+
+            document.getElementById('kecamatanInput').value = kecamatan.nama;
+            document.getElementById('locationName').value = `Kecamatan ${kecamatan.nama}, Lampung Selatan`;
+            document.getElementById('areaText').textContent = `Kecamatan ${kecamatan.nama}`;
+
+            showMessage(`Peta dipindahkan ke Kecamatan ${kecamatan.nama}`, 'success');
         }
 
         function getCurrentLocation() {
@@ -270,9 +491,16 @@
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
 
+                    if (!lampungSelatanBounds.contains([lat, lng])) {
+                        showMessage('Lokasi kamu berada di luar wilayah Lampung Selatan', 'error');
+                        return;
+                    }
+
                     map.setView([lat, lng], 16);
                     marker.setLatLng([lat, lng]);
                     setSelectedLocation(lat, lng);
+
+                    document.getElementById('areaText').textContent = 'Lokasi Saya di Lampung Selatan';
 
                     showMessage('Lokasi berhasil diambil', 'success');
                 },
@@ -384,7 +612,9 @@
                     document.getElementById('authMessage').innerHTML = '';
 
                     setTimeout(function() {
-                        map.invalidateSize();
+                        if (map) {
+                            map.invalidateSize();
+                        }
                     }, 300);
                 } else {
                     logout();
