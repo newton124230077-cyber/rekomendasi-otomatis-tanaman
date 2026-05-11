@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Cerdas Rekomendasi Tanaman | LOGIN 2026</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1a5f2a 0%, #0d3b19 100%); min-height: 100vh; }
@@ -37,6 +41,36 @@
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         button[type="submit"] { width: 100%; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 12px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; transition: transform 0.2s; }
         button[type="submit"]:hover { transform: translateY(-2px); }
+        
+        /* Peta Lokasi */
+        #map {
+            width: 100%;
+            height: 320px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+            margin-bottom: 10px;
+        }
+
+        .location-btn {
+            width: 100%;
+            background: #1a5f2a;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .location-info {
+            background: #f0fdf4;
+            border-left: 4px solid #4CAF50;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
         
         /* Results */
         .result-card { background: #f0fdf4; border-radius: 10px; padding: 15px; margin-bottom: 15px; border-left: 4px solid #4CAF50; }
@@ -125,20 +159,39 @@
                         </div>
                         <div class="form-group">
                             <label>🪨 Jenis Tanah</label>
-                            <<select id="soilType" required>
-    <option value="">Pilih Jenis Tanah</option>
-    <option value="Tanah Sawah (Aluvial)">Tanah Sawah (Subur di dataran rendah)</option>
-    <option value="Tanah Vulkanik">Tanah Vulkanik (dari gunung berapi, sangat subur)</option>
-    <option value="Tanah Merah">Tanah Merah (cukup subur untuk perkebunan)</option>
-    <option value="Tanah Berpasir">Tanah Berpasir (kering, cepat menyerap air)</option>
-    <option value="Tanah Masam">Tanah Masam (asam, perlu pengolahan)</option>
-    <option value="Tanah Kering / Kurang Subur">Tanah Kering (kurang subur)</option>
-</select>
+                            <select id="soilType" required>
+                                <option value="">Pilih Jenis Tanah</option>
+                                <option value="Tanah Sawah (Aluvial)">Tanah Sawah (Subur di dataran rendah)</option>
+                                <option value="Tanah Vulkanik">Tanah Vulkanik (dari gunung berapi, sangat subur)</option>
+                                <option value="Tanah Merah">Tanah Merah (cukup subur untuk perkebunan)</option>
+                                <option value="Tanah Berpasir">Tanah Berpasir (kering, cepat menyerap air)</option>
+                                <option value="Tanah Masam">Tanah Masam (asam, perlu pengolahan)</option>
+                                <option value="Tanah Kering / Kurang Subur">Tanah Kering (kurang subur)</option>
+                            </select>
                         </div>
+
+                        <div class="form-group">
+                            <label>🗺️ Pilih Lokasi pada Peta</label>
+                            <div id="map"></div>
+
+                            <button type="button" class="location-btn" onclick="getCurrentLocation()">
+                                📍 Gunakan Lokasi Saya Sekarang
+                            </button>
+
+                            <div class="location-info">
+                                <p><strong>Latitude:</strong> <span id="latitudeText">Belum dipilih</span></p>
+                                <p><strong>Longitude:</strong> <span id="longitudeText">Belum dipilih</span></p>
+                            </div>
+
+                            <input type="hidden" id="latitude">
+                            <input type="hidden" id="longitude">
+                        </div>
+
                         <div class="form-group">
                             <label>📍 Nama Lokasi (Opsional)</label>
                             <input type="text" id="locationName" placeholder="Contoh: Kecamatan Jati Agung">
                         </div>
+
                         <button type="submit">🔍 Analisis Kesesuaian Lahan</button>
                     </form>
                 </div>
@@ -159,12 +212,89 @@
     </div>
     
     <script>
+        const BASE_URL = "";
         let token = localStorage.getItem('token');
+
+        let map;
+        let marker;
+        let selectedLatitude = null;
+        let selectedLongitude = null;
+
+        function initMap() {
+            map = L.map('map').setView([-5.3600, 105.3100], 12);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            marker = L.marker([-5.3600, 105.3100], {
+                draggable: true
+            }).addTo(map);
+
+            setSelectedLocation(-5.3600, 105.3100);
+
+            map.on('click', function(event) {
+                const lat = event.latlng.lat;
+                const lng = event.latlng.lng;
+
+                marker.setLatLng([lat, lng]);
+                setSelectedLocation(lat, lng);
+            });
+
+            marker.on('dragend', function() {
+                const position = marker.getLatLng();
+                setSelectedLocation(position.lat, position.lng);
+            });
+        }
+
+        function setSelectedLocation(lat, lng) {
+            selectedLatitude = lat;
+            selectedLongitude = lng;
+
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+
+            document.getElementById('latitudeText').textContent = lat.toFixed(6);
+            document.getElementById('longitudeText').textContent = lng.toFixed(6);
+        }
+
+        function getCurrentLocation() {
+            if (!navigator.geolocation) {
+                showMessage('Browser tidak mendukung fitur lokasi', 'error');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+
+                    map.setView([lat, lng], 16);
+                    marker.setLatLng([lat, lng]);
+                    setSelectedLocation(lat, lng);
+
+                    showMessage('Lokasi berhasil diambil', 'success');
+                },
+                function() {
+                    showMessage('Gagal mengambil lokasi. Izinkan akses lokasi di browser.', 'error');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
         
         // Cek token saat load
         if (token) {
             verifyToken();
         }
+
+        window.addEventListener('load', function() {
+            initMap();
+        });
         
         function showAuthTab(tab) {
             if (tab === 'login') {
@@ -190,7 +320,7 @@
             const confirmPassword = document.getElementById('regConfirmPassword').value;
             
             try {
-                const response = await fetch('/api/auth/register', {
+                const response = await fetch(`${BASE_URL}/api/auth/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, email, password, confirmPassword })
@@ -217,7 +347,7 @@
             const password = document.getElementById('loginPassword').value;
             
             try {
-                const response = await fetch('/api/auth/login', {
+                const response = await fetch(`${BASE_URL}/api/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
@@ -239,7 +369,7 @@
         
         async function verifyToken() {
             try {
-                const response = await fetch('/api/auth/me', {
+                const response = await fetch(`${BASE_URL}/api/auth/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
@@ -252,6 +382,10 @@
                     document.getElementById('mainContent').classList.remove('hidden');
                     document.querySelector('.auth-tabs').classList.add('hidden');
                     document.getElementById('authMessage').innerHTML = '';
+
+                    setTimeout(function() {
+                        map.invalidateSize();
+                    }, 300);
                 } else {
                     logout();
                 }
@@ -295,6 +429,8 @@
             const rainfall = parseFloat(document.getElementById('rainfall').value);
             const temperature = parseFloat(document.getElementById('temperature').value);
             const soilType = document.getElementById('soilType').value;
+            const latitude = document.getElementById('latitude').value;
+            const longitude = document.getElementById('longitude').value;
             const locationName = document.getElementById('locationName').value;
             
             if (!elevation || !slope || !rainfall || !temperature || !soilType) {
@@ -311,7 +447,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ elevation, slope, rainfall, temperature, soilType, locationName })
+                    body: JSON.stringify({ elevation, slope, rainfall, temperature, soilType, latitude, longitude, locationName })
                 });
                 
                 const result = await response.json();
@@ -351,6 +487,7 @@
                         <div class="result-card">
                             <strong>📝 Ringkasan Analisis</strong>
                             <p style="margin-top: 10px;">${data.summary}</p>
+                            <small style="color: #666;">📍 Koordinat: ${Number(latitude).toFixed(6)}, ${Number(longitude).toFixed(6)}</small><br>
                             <small style="color: #666;">⏰ ${new Date(data.timestamp).toLocaleString('id-ID')}</small>
                         </div>
                     `;
